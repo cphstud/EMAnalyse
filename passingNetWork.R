@@ -13,8 +13,9 @@ ui <- fluidPage(
     sidebarPanel(
       selectInput("matches",
                   label = "vælg kamp",
-                  choices <- c("dkSlov", "dkUK", "dkSerb"),
-                  selected = "dkUK"
+                  choices = c("Denmark-Slovenia", "Denmark-England", "Denmark-Serbia"),
+                  #choices <- c("dkSlov", "dkUK", "dkSerb"),
+                  selected = "Denmark-England"
                   ),
       selectInput("team",
                   label = "vælg hold",
@@ -40,6 +41,18 @@ server <- function(input, output, session) {
   dkSlov = fromJSON("data/dkslov.json", flatten = T)
   dkUK = fromJSON("data/dkgb.json", flatten = T)
   dkSerb = fromJSON("data/dkserb.json", flatten = T)
+  dkGerm = fromJSON("data/dkgerm.json", flatten = T)
+  gc <- c("Denmark-Slovenia"="dkSlov", "Denmark-Germany"="dkGerm", "Denmark-England"="dkUK", "Denmark-Serbia"="dkSerb")
+  
+  observe({
+    dkm <- input$matches
+    ttin <- unlist(str_split(dkm,"-"))
+    t1 <-ttin[1]
+    t2 <-ttin[2]
+    updateSelectInput(session, "team", choices = c(t1,t2))
+    
+  })
+
   #choices <- c("dkSlov", "dkUk", "dkSerb")
   #choices <- c("dkSlov"="Slovenia", "dkUK"="England", "dkSerb"="Serbia")
   #choices <- c("Option 1" = "value1", "Option 2" = "value2", "Option 3" = "value3")
@@ -59,9 +72,10 @@ server <- function(input, output, session) {
     tval <- as.integer(input$minutes)
     team <- input$team
     minpass <- input$mincount
-    test=as.character(input$matches)
+    test=input$matches
     print(test)
-    dkMatch=get(test)
+    mtest=gc[test]
+    dkMatch=get(mtest)
     dkMPassesBU=dkMatch %>% filter(type.name=="Pass")
     dkMPasses=dkMPassesBU
     dkMPasses$location.x=unlist(lapply(dkMPasses$location, function(x) x[1]))
