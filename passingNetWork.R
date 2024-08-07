@@ -145,45 +145,6 @@ server <- function(input, output, session) {
          color = "Team and Type") +
     theme_minimal()
     
-    
-#    ggplot(dkMPassesFWCtre, aes(x = period, y = fwct, color = team.name, group = team.name)) +
-#      geom_line() +
-#      geom_point() +
-#      scale_x_continuous(breaks = seq(min(dkMPassesFWCtre$period), max(dkMPassesFWCtre$period), by = 1)) +
-#      labs(title = "Team backPasses Over Periods",
-#           x = "Period (10 minutes)",
-#           y = "Count",
-#           color = "Team") +
-#      theme_minimal()
-#    
-#    ggplot(dkMPassesFWCt, aes(x = period, y = fwct, color = team.name, group = team.name)) +
-#      geom_line() +
-#      geom_point() +
-#      scale_x_continuous(breaks = seq(min(dkMPassesFWCtre$period), max(dkMPassesFWCtre$period), by = 1)) +
-#      labs(title = "Team Forward Passes Over Periods",
-#           x = "Period (10 minutes)",
-#           y = "Count",
-#           color = "Team") +
-#      theme_minimal()
-#    
-    #ggplot(myPassP, aes(x = period, y = cnt, fill = team.name, group = team.name)) +
-    #  geom_bar(stat = "identity", position = "dodge") +
-    #  labs(title = "Team Passes Over Periods",
-    #       x = "Period",
-    #       y = "Count",
-    #       color = "Team") +
-    #  theme_minimal()
-    #ggplot(myShotP, aes(x = period, y = cnt, color = team.name)) +
-    #  geom_line()+
-    #  labs(title = "Team Shots Over Periods",
-    #       x = "Period",
-    #       y = "Count",
-    #       color = "Team")
-   # 
-   # 
-  #  #print(dkMPassesBU)
-   # print("2dkMPassesBU")
-    
   })
 
   output$passplot <- renderPlot({
@@ -192,7 +153,7 @@ server <- function(input, output, session) {
     team <- input$team
     minpass <- input$mincount
     test=input$matches
-    print(minpass)
+    #print(minpass)
     mtest=gc[test]
     
     # get the chosen match
@@ -206,7 +167,7 @@ server <- function(input, output, session) {
     dkMPasses$pass.endLocation.y=unlist(lapply(dkMPasses$pass.end_location, function(x) x[2]))
     dkMPasses$pass.endLocation.y=unlist(lapply(dkMPasses$pass.end_location, function(x) x[2]))
     dkMPasses <- dkMPasses %>% mutate(period=(minute %/% 10)+1)
-    print(minpass)
+    #print(minpass)
     
     dkMPassesG <- dkMPasses %>% filter(period==tval)
     allPM <- dkMPassesG
