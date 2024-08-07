@@ -1,6 +1,7 @@
 library(rsconnect)
 library(shiny)
 library(dplyr)
+library(tidyr)
 library(ggplot2)
 library(ggsoccer)
 library(stringr)
@@ -13,7 +14,7 @@ ui <- fluidPage(
     sidebarPanel(
       selectInput("matches",
                   label = "vælg kamp",
-                  choices = c("Denmark-Slovenia", "Denmark-England", "Denmark-Serbia"),
+                  choices = c("Denmark-Slovenia", "Denmark-England", "Denmark-Serbia", "Denmark-Germany"),
                   #choices <- c("dkSlov", "dkUK", "dkSerb"),
                   selected = "Denmark-England"
                   ),
@@ -27,12 +28,16 @@ ui <- fluidPage(
                   value = 1, step = 1
                   ),
       numericInput("mincount",
+                   label = "Vælg minimum antal afleveringer",
+                   value = 1, step = 1
+      ),
+      checkboxInput("tick",
                   label = "Vælg minimum antal afleveringer",
-                  value = 1, step = 1
-                  )
+                  value = 1 )
     ),
       mainPanel(
-        plotOutput("passplot")
+        plotOutput("passplot"),
+        plotOutput("stats")
       )
     )
   )
@@ -44,38 +49,125 @@ server <- function(input, output, session) {
   dkGerm = fromJSON("data/dkgerm.json", flatten = T)
   gc <- c("Denmark-Slovenia"="dkSlov", "Denmark-Germany"="dkGerm", "Denmark-England"="dkUK", "Denmark-Serbia"="dkSerb")
   
+  #getT <- reactive({
+  #  dkm <- input$matches
+  #  paste(dkm)
+  #})
+    
+  
+  #getStuff <- reactive({
+  #  dkm <- input$tick
+  #  print("reactiv test")
+  #  test <- "kurt"
+  #  #mtest=gc[test]
+  #  #get(mtest)
+  #})
+  
   observe({
     dkm <- input$matches
     ttin <- unlist(str_split(dkm,"-"))
     t1 <-ttin[1]
     t2 <-ttin[2]
     updateSelectInput(session, "team", choices = c(t1,t2))
+  })
+  
+  output$stats <- renderPlot({
+    dkm <- input$matches
+    mtest=gc[dkm]
+    myMatch=get(mtest)
+    myMatch=dkGerm
+  #  print("dkMPassesBU")
+  #  #print("..")
+  #  #print("si.")
+  #  #print(rest)
+    myMatch <- myMatch %>% mutate(period=(minute %/% 10)+1)
+    dkMShots=myMatch %>% filter(type.name=="Shot")
+    myTab = dkMShots %>% group_by(team.name) %>% mutate(cnt=n()) %>% select(team.name,cnt) %>% unique() %>% ungroup()
+    dkMPasses=myMatch %>% filter(type.name=="Pass")
+    myPass = dkMPasses %>% group_by(team.name) %>% mutate(cnt=n()) %>% select(team.name,cnt) %>% unique() %>% ungroup()
+    myPassP = dkMPasses %>% group_by(team.name, period) %>% mutate(cnt=n()) %>% select(team.name,period,cnt) %>% unique() %>% ungroup()
+    myShotP = dkMShots %>% group_by(team.name, period) %>% mutate(cnt=n()) %>% select(team.name,period,cnt) %>% unique() %>% ungroup()
+    myG = dkMShots %>% filter(shot.outcome.name == "Goal") %>% select(team.name,shot.outcome.name, period)
+  dkMPassesFW=dkMPasses %>% mutate(fw=ifelse(pass.angle < 1,0,1))
+  dkMPassesFWCt=dkMPassesFW %>% filter(fw==1) %>%  group_by(team.name,period) %>% mutate(fwct=n()) %>% select(team.name,period,fwct) %>% unique() %>% ungroup()
+  dkMPassesFWCtre=dkMPassesFW %>% filter(fw==0) %>%  group_by(team.name,period) %>% mutate(rwct=n()) %>% select(team.name,period,rwct) %>% unique() %>% ungroup()
+  
+  # bind
+  dkTot=merge(dkMPassesFWCt,dkMPassesFWCtre) 
+  data_long <- dkTot %>%
+    pivot_longer(cols = c("fwct", "rwct"), names_to = "type", values_to = "count")
+    
+  ggplot(data_long, aes(x = period, y = count, color = interaction(team.name, type), group = interaction(team.name, type))) +
+    geom_line() +
+    geom_point() +
+    scale_x_continuous(breaks = seq(min(data_long$period), max(data_long$period), by = 1)) +
+    labs(title = "Team Performance Over Periods",
+         x = "Period",
+         y = "Count",
+         color = "Team and Type") +
+    theme_minimal()
+    
+    ggplot(myPassP, aes(x = period, y = cnt, color = team.name, group = team.name)) +
+      geom_line() +
+      geom_point() +
+      scale_x_continuous(breaks = seq(min(myPassP$period), max(myPassP$period), by = 1)) +
+      labs(title = "Team Passes Over Periods",
+           x = "Period (10 minutes)",
+           y = "Count",
+           color = "Team") +
+      theme_minimal()
+    ggplot(dkMPassesFWCtre, aes(x = period, y = fwct, color = team.name, group = team.name)) +
+      geom_line() +
+      geom_point() +
+      scale_x_continuous(breaks = seq(min(dkMPassesFWCtre$period), max(dkMPassesFWCtre$period), by = 1)) +
+      labs(title = "Team backPasses Over Periods",
+           x = "Period (10 minutes)",
+           y = "Count",
+           color = "Team") +
+      theme_minimal()
+    
+    ggplot(dkMPassesFWCt, aes(x = period, y = fwct, color = team.name, group = team.name)) +
+      geom_line() +
+      geom_point() +
+      scale_x_continuous(breaks = seq(min(dkMPassesFWCtre$period), max(dkMPassesFWCtre$period), by = 1)) +
+      labs(title = "Team Forward Passes Over Periods",
+           x = "Period (10 minutes)",
+           y = "Count",
+           color = "Team") +
+      theme_minimal()
+    
+    #ggplot(myPassP, aes(x = period, y = cnt, fill = team.name, group = team.name)) +
+    #  geom_bar(stat = "identity", position = "dodge") +
+    #  labs(title = "Team Passes Over Periods",
+    #       x = "Period",
+    #       y = "Count",
+    #       color = "Team") +
+    #  theme_minimal()
+    #ggplot(myShotP, aes(x = period, y = cnt, color = team.name)) +
+    #  geom_line()+
+    #  labs(title = "Team Shots Over Periods",
+    #       x = "Period",
+    #       y = "Count",
+    #       color = "Team")
+   # 
+   # 
+  #  #print(dkMPassesBU)
+   # print("2dkMPassesBU")
     
   })
 
-  #choices <- c("dkSlov", "dkUk", "dkSerb")
-  #choices <- c("dkSlov"="Slovenia", "dkUK"="England", "dkSerb"="Serbia")
-  #choices <- c("Option 1" = "value1", "Option 2" = "value2", "Option 3" = "value3")
-  
-  
-  # manuel prep
-    #choices <- c("dkSlov"="Slovenia", "dkUK"="England", "dkSerb"="Serbia")
-    #choices <- c("dkSlov"="Slovenia", "dkUK"="England", "dkSerb"="Serbia")
-    # Here, we simulate fetching data with a static list of choices
-    # Update the selectInput choices dynamically
-    #updateSelectInput(session, "matches", choices = choices)
-  
-  #dkMatch = fromJSON("data/3930162.json", flatten = T)
-  # mean location for den som afleverer
-  
   output$passplot <- renderPlot({
-    tval <- as.integer(input$minutes)
+    #get input vars
+    tval <- input$minutes
     team <- input$team
     minpass <- input$mincount
     test=input$matches
-    print(test)
+    print(minpass)
     mtest=gc[test]
+    
+    # get the chosen match
     dkMatch=get(mtest)
+    dkMatch=dkSlov
     dkMPassesBU=dkMatch %>% filter(type.name=="Pass")
     dkMPasses=dkMPassesBU
     dkMPasses$location.x=unlist(lapply(dkMPasses$location, function(x) x[1]))
@@ -84,10 +176,7 @@ server <- function(input, output, session) {
     dkMPasses$pass.endLocation.y=unlist(lapply(dkMPasses$pass.end_location, function(x) x[2]))
     dkMPasses$pass.endLocation.y=unlist(lapply(dkMPasses$pass.end_location, function(x) x[2]))
     dkMPasses <- dkMPasses %>% mutate(period=(minute %/% 10)+1)
-    #ht <- "Denmark"
-    #tval <- 1
-    #team <- "Denmark"
-    #minpass <- 2
+    print(minpass)
     
     dkMPassesG <- dkMPasses %>% filter(period==tval)
     allPM <- dkMPassesG
@@ -128,8 +217,6 @@ server <- function(input, output, session) {
       theme(legend.position = "none")+
       direction_label() +
       ggtitle("passmap", df2$team.name )
-      
-    
   })
 }
 
