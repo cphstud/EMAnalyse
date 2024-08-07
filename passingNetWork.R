@@ -36,8 +36,11 @@ ui <- fluidPage(
                   value = 1 )
     ),
       mainPanel(
+        tableOutput("result"),
         plotOutput("passplot"),
-        plotOutput("stats")
+        plotOutput("passstat"),
+        plotOutput("passstatII"),
+        plotOutput("goalstat")
       )
     )
   )
@@ -55,13 +58,14 @@ server <- function(input, output, session) {
   #})
     
   
-  #getStuff <- reactive({
-  #  dkm <- input$tick
-  #  print("reactiv test")
-  #  test <- "kurt"
-  #  #mtest=gc[test]
-  #  #get(mtest)
-  #})
+  output$result <- renderTable({
+    dkm <- input$matches
+    mtest=gc[dkm]
+    myMatch=get(mtest)
+    myMatch <- myMatch %>% mutate(period=(minute %/% 10)+1)
+    dkMShots=myMatch %>% filter(type.name=="Shot")
+    myGoals = dkMShots %>% filter(shot.outcome.name == "Goal") %>% select(team.name,shot.outcome.name, period)
+  })
   
   observe({
     dkm <- input$matches
@@ -71,43 +75,39 @@ server <- function(input, output, session) {
     updateSelectInput(session, "team", choices = c(t1,t2))
   })
   
-  output$stats <- renderPlot({
+  output$goalstat <- renderPlot({
     dkm <- input$matches
     mtest=gc[dkm]
     myMatch=get(mtest)
-    myMatch=dkGerm
-  #  print("dkMPassesBU")
-  #  #print("..")
-  #  #print("si.")
-  #  #print(rest)
     myMatch <- myMatch %>% mutate(period=(minute %/% 10)+1)
     dkMShots=myMatch %>% filter(type.name=="Shot")
-    myTab = dkMShots %>% group_by(team.name) %>% mutate(cnt=n()) %>% select(team.name,cnt) %>% unique() %>% ungroup()
-    dkMPasses=myMatch %>% filter(type.name=="Pass")
-    myPass = dkMPasses %>% group_by(team.name) %>% mutate(cnt=n()) %>% select(team.name,cnt) %>% unique() %>% ungroup()
-    myPassP = dkMPasses %>% group_by(team.name, period) %>% mutate(cnt=n()) %>% select(team.name,period,cnt) %>% unique() %>% ungroup()
-    myShotP = dkMShots %>% group_by(team.name, period) %>% mutate(cnt=n()) %>% select(team.name,period,cnt) %>% unique() %>% ungroup()
-    myG = dkMShots %>% filter(shot.outcome.name == "Goal") %>% select(team.name,shot.outcome.name, period)
-  dkMPassesFW=dkMPasses %>% mutate(fw=ifelse(pass.angle < 1,0,1))
-  dkMPassesFWCt=dkMPassesFW %>% filter(fw==1) %>%  group_by(team.name,period) %>% mutate(fwct=n()) %>% select(team.name,period,fwct) %>% unique() %>% ungroup()
-  dkMPassesFWCtre=dkMPassesFW %>% filter(fw==0) %>%  group_by(team.name,period) %>% mutate(rwct=n()) %>% select(team.name,period,rwct) %>% unique() %>% ungroup()
+    myTotShots = dkMShots %>% group_by(team.name) %>% mutate(cnt=n()) %>% select(team.name,cnt) %>% unique() %>% ungroup()
+    myShotP = dkMShots %>% group_by(team.name, period) %>% mutate(cnt=n()) %>% 
+      select(team.name,period,cnt) %>% unique() %>% ungroup()
+    myGoals = dkMShots %>% filter(shot.outcome.name == "Goal") %>% select(team.name,shot.outcome.name, period)
+    
+    ggplot(myShotP, aes(x = period, y = cnt, color = team.name)) +
+      #geom_bar(stat = "identity", position = "dodge")+
+      geom_point()+
+      geom_line()+
+      scale_x_continuous(breaks = seq(min(myShotP$period), max(myShotP$period), by = 1)) +
+      ylim(0, max(myShotP$cnt))+
+      labs(title = "Team Shots Over Periods",
+           x = "Period",
+           y = "Count",
+           color = "Team")
+    
+  })
   
-  # bind
-  dkTot=merge(dkMPassesFWCt,dkMPassesFWCtre) 
-  data_long <- dkTot %>%
-    pivot_longer(cols = c("fwct", "rwct"), names_to = "type", values_to = "count")
-    
-  ggplot(data_long, aes(x = period, y = count, color = interaction(team.name, type), group = interaction(team.name, type))) +
-    geom_line() +
-    geom_point() +
-    scale_x_continuous(breaks = seq(min(data_long$period), max(data_long$period), by = 1)) +
-    labs(title = "Team Performance Over Periods",
-         x = "Period",
-         y = "Count",
-         color = "Team and Type") +
-    theme_minimal()
-    
-    ggplot(myPassP, aes(x = period, y = cnt, color = team.name, group = team.name)) +
+  output$passstatII <- renderPlot({
+    dkm <- input$matches
+    mtest=gc[dkm]
+    myMatch=get(mtest)
+    myMatch <- myMatch %>% mutate(period=(minute %/% 10)+1)
+    dkMPasses=myMatch %>% filter(type.name=="Pass")
+    totPass = dkMPasses %>% group_by(team.name) %>% mutate(cnt=n()) %>% select(team.name,cnt) %>% unique() %>% ungroup()
+    periodPass = dkMPasses %>% group_by(team.name, period) %>% mutate(cnt=n()) %>% select(team.name,period,cnt) %>% unique() %>% ungroup()
+    ggplot(periodPass, aes(x = period, y = cnt, color = team.name, group = team.name)) +
       geom_line() +
       geom_point() +
       scale_x_continuous(breaks = seq(min(myPassP$period), max(myPassP$period), by = 1)) +
@@ -116,26 +116,56 @@ server <- function(input, output, session) {
            y = "Count",
            color = "Team") +
       theme_minimal()
-    ggplot(dkMPassesFWCtre, aes(x = period, y = fwct, color = team.name, group = team.name)) +
-      geom_line() +
-      geom_point() +
-      scale_x_continuous(breaks = seq(min(dkMPassesFWCtre$period), max(dkMPassesFWCtre$period), by = 1)) +
-      labs(title = "Team backPasses Over Periods",
-           x = "Period (10 minutes)",
-           y = "Count",
-           color = "Team") +
-      theme_minimal()
+  })
+  
+  output$passstat <- renderPlot({
+    dkm <- input$matches
+    mtest=gc[dkm]
+    myMatch=get(mtest)
+    myMatch <- myMatch %>% mutate(period=(minute %/% 10)+1)
+    dkMPasses=myMatch %>% filter(type.name=="Pass")
+    totPass = dkMPasses %>% group_by(team.name) %>% mutate(cnt=n()) %>% select(team.name,cnt) %>% unique() %>% ungroup()
+    periodPass = dkMPasses %>% group_by(team.name, period) %>% mutate(cnt=n()) %>% select(team.name,period,cnt) %>% unique() %>% ungroup()
     
-    ggplot(dkMPassesFWCt, aes(x = period, y = fwct, color = team.name, group = team.name)) +
-      geom_line() +
-      geom_point() +
-      scale_x_continuous(breaks = seq(min(dkMPassesFWCtre$period), max(dkMPassesFWCtre$period), by = 1)) +
-      labs(title = "Team Forward Passes Over Periods",
-           x = "Period (10 minutes)",
-           y = "Count",
-           color = "Team") +
-      theme_minimal()
+    dkMPassesFW=dkMPasses %>% mutate(fw=ifelse(pass.angle < 1,0,1))
+    dkMPassesFWCt=dkMPassesFW %>% filter(fw==1) %>%  group_by(team.name,period) %>% mutate(fwct=n()) %>% select(team.name,period,fwct) %>% unique() %>% ungroup()
+    dkMPassesFWCtre=dkMPassesFW %>% filter(fw==0) %>%  group_by(team.name,period) %>% mutate(rwct=n()) %>% select(team.name,period,rwct) %>% unique() %>% ungroup()
     
+    dkTot=merge(dkMPassesFWCt,dkMPassesFWCtre) 
+    data_long <- dkTot %>%
+    pivot_longer(cols = c("fwct", "rwct"), names_to = "type", values_to = "count")
+    
+  ggplot(data_long, aes(x = period, y = count, color = interaction(team.name, type), group = interaction(team.name, type))) +
+    geom_line() +
+    geom_point() +
+    scale_x_continuous(breaks = seq(min(data_long$period), max(data_long$period), by = 1)) +
+    labs(title = "Team Passes (forward and backwards (fwct and rwct)) Over Periods",
+         x = "Period",
+         y = "Count",
+         color = "Team and Type") +
+    theme_minimal()
+    
+    
+#    ggplot(dkMPassesFWCtre, aes(x = period, y = fwct, color = team.name, group = team.name)) +
+#      geom_line() +
+#      geom_point() +
+#      scale_x_continuous(breaks = seq(min(dkMPassesFWCtre$period), max(dkMPassesFWCtre$period), by = 1)) +
+#      labs(title = "Team backPasses Over Periods",
+#           x = "Period (10 minutes)",
+#           y = "Count",
+#           color = "Team") +
+#      theme_minimal()
+#    
+#    ggplot(dkMPassesFWCt, aes(x = period, y = fwct, color = team.name, group = team.name)) +
+#      geom_line() +
+#      geom_point() +
+#      scale_x_continuous(breaks = seq(min(dkMPassesFWCtre$period), max(dkMPassesFWCtre$period), by = 1)) +
+#      labs(title = "Team Forward Passes Over Periods",
+#           x = "Period (10 minutes)",
+#           y = "Count",
+#           color = "Team") +
+#      theme_minimal()
+#    
     #ggplot(myPassP, aes(x = period, y = cnt, fill = team.name, group = team.name)) +
     #  geom_bar(stat = "identity", position = "dodge") +
     #  labs(title = "Team Passes Over Periods",
