@@ -1,6 +1,6 @@
 # EM Analyse
 
-![Project Logo](./images/logo.jpg)
+![Project Logo](./images/logo.png)
 
 ## Introduction
 Rapid prototype **Event based soccer analysis** designed to answer critical questions
