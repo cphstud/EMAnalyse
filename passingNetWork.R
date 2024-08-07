@@ -110,7 +110,7 @@ server <- function(input, output, session) {
     ggplot(periodPass, aes(x = period, y = cnt, color = team.name, group = team.name)) +
       geom_line() +
       geom_point() +
-      scale_x_continuous(breaks = seq(min(myPassP$period), max(myPassP$period), by = 1)) +
+      scale_x_continuous(breaks = seq(min(periodPass$period), max(periodPass$period), by = 1)) +
       labs(title = "Team Passes Over Periods",
            x = "Period (10 minutes)",
            y = "Count",
